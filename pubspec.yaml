@@ -1,7 +1,8 @@
 name: flutter_auth_kit
-description: "A new Flutter package project."
-version: 0.0.1
-homepage:
+description: "Reusable multi-role auth logic for Flutter apps, backed by Supabase: bloc/cubit, domain entities/usecases, and repository. No UI - screens stay app-owned."
+version: 0.1.0
+homepage: https://github.com/ba6ul/flutter_auth_kit
+repository: https://github.com/ba6ul/flutter_auth_kit
 
 environment:
   sdk: ^3.8.1
