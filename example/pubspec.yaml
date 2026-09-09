@@ -1,0 +1,22 @@
+name: multi_role_auth_example
+description: "Minimal example showing how to wire up multi_role_auth: DI, providers, and a login screen."
+publish_to: "none"
+version: 1.0.0
+
+environment:
+  sdk: ^3.8.1
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_bloc: ^9.1.1
+  supabase_flutter: ^2.10.3
+  multi_role_auth:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

@@ -3,7 +3,9 @@ import '../../config/supabase_schema.dart';
 import '../../domain/user_role.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Data-layer [UserProfile] with Supabase (de)serialization helpers.
 class UserModel extends UserProfile {
+  /// Creates a model with the given profile fields.
   UserModel({
     required super.id,
     required super.email,
@@ -47,6 +49,7 @@ class UserModel extends UserProfile {
     );
   }
 
+  /// Returns a copy with the given fields replaced.
   UserModel copyWith({
     String? id,
     String? email,

@@ -13,6 +13,7 @@ export 'src/auth/domain/repository/auth_repository.dart';
 export 'src/auth/domain/usecase/current_user.dart';
 export 'src/auth/domain/usecase/delete_account.dart';
 export 'src/auth/domain/usecase/send_password_reset_email.dart';
+export 'src/auth/domain/usecase/sign_in_with_google.dart';
 export 'src/auth/domain/usecase/user_login.dart';
 export 'src/auth/domain/usecase/user_sign_out.dart';
 export 'src/auth/domain/usecase/user_signup.dart';

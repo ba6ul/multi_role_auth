@@ -9,9 +9,13 @@ import '../model/user_model.dart';
 import '../../domain/repository/auth_repository.dart';
 import '../../domain/user_role.dart';
 
+/// [AuthRepository] implementation that delegates to an
+/// [AuthRemoteDataSource] and maps thrown [NetworkException]s to [Failure]s.
 class AuthRepositoryImpl implements AuthRepository {
+  /// The data source this repository delegates to.
   final AuthRemoteDataSource remoteDataSource;
 
+  /// Creates the repository over [remoteDataSource].
   const AuthRepositoryImpl(this.remoteDataSource);
 
   @override
@@ -55,6 +59,19 @@ class AuthRepositoryImpl implements AuthRepository {
       () async => await remoteDataSource.loginWithEmailPassword(
         email: email,
         password: password,
+      ),
+    );
+  }
+
+  @override
+  Future<Either<Failure, UserProfile>> signInWithGoogle({
+    String? redirectTo,
+    Duration timeout = const Duration(minutes: 3),
+  }) async {
+    return _getUser(
+      () async => await remoteDataSource.signInWithGoogle(
+        redirectTo: redirectTo,
+        timeout: timeout,
       ),
     );
   }

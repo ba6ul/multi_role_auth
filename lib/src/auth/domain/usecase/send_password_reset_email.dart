@@ -12,7 +12,10 @@ import '../repository/auth_repository.dart';
 /// the result: `right(null)` on success, `left(Failure)` with a message on
 /// failure.
 class SendPasswordResetEmail implements UseCase<void, String> {
+  /// The repository this use case delegates to.
   final AuthRepository authRepository;
+
+  /// Creates the use case.
   const SendPasswordResetEmail(this.authRepository);
 
   @override

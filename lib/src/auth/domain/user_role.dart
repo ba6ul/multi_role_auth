@@ -19,9 +19,28 @@ import 'package:flutter/material.dart';
 /// - Profile creation and updates
 /// - Dashboard routing (via role check)
 
-enum UserRole { guest, member, lead, admin, superadmin }
+/// The set of user roles the auth flow supports, in ascending privilege.
+enum UserRole {
+  /// Limited access to basic features.
+  guest,
 
+  /// Standard access to core features.
+  member,
+
+  /// Team management and oversight.
+  lead,
+
+  /// Full administrative privileges.
+  admin,
+
+  /// Complete system control.
+  superadmin,
+}
+
+/// Convenience accessors for [UserRole]: display labels, database mapping,
+/// and UI hints (icon/color).
 extension UserRoleExtension on UserRole {
+  /// A user-friendly label for display in the UI.
   String get displayName {
     switch (this) {
       case UserRole.guest:
@@ -37,6 +56,7 @@ extension UserRoleExtension on UserRole {
     }
   }
 
+  /// The string persisted to (and read from) the database.
   String get dbValue {
     switch (this) {
       case UserRole.guest:
@@ -52,6 +72,7 @@ extension UserRoleExtension on UserRole {
     }
   }
 
+  /// A representative icon for the role, for use in UI components.
   IconData get icon {
     switch (this) {
       case UserRole.guest:
@@ -67,6 +88,7 @@ extension UserRoleExtension on UserRole {
     }
   }
 
+  /// A representative color for the role, for use in UI components.
   Color get color {
     switch (this) {
       case UserRole.guest:
@@ -82,6 +104,7 @@ extension UserRoleExtension on UserRole {
     }
   }
 
+  /// A short explanation of the role's access level.
   String get description {
     switch (this) {
       case UserRole.guest:
@@ -97,7 +120,8 @@ extension UserRoleExtension on UserRole {
     }
   }
 
-  // Helper for parsing from string value (db value)
+  /// Parses a [UserRole] back from its stored [dbValue], or `null` if the
+  /// value is unrecognized.
   static UserRole? fromDbValue(String? value) {
     switch (value) {
       case 'guest':
@@ -117,7 +141,7 @@ extension UserRoleExtension on UserRole {
     }
   }
 
-  /// This will be used for Custom id genration
+  /// A short code for the role, used when generating custom user ids.
   String get prefix {
     switch (this) {
       case UserRole.guest:
