@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_auth_kit/src/auth/data/datasource/auth_remote_data_source.dart';
-import 'package:flutter_auth_kit/src/auth/data/repositories/auth_repository_impl.dart';
-import 'package:flutter_auth_kit/src/core/error/network_exceptions.dart';
+import 'package:multi_role_auth/src/auth/data/datasource/auth_remote_data_source.dart';
+import 'package:multi_role_auth/src/auth/data/repositories/auth_repository_impl.dart';
+import 'package:multi_role_auth/src/core/error/network_exceptions.dart';
 
 /// Minimal hand-written fake — the package has no mock framework, and the
 /// reset path only touches [AuthRemoteDataSource.sendPasswordResetEmail], so

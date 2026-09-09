@@ -104,4 +104,4 @@ service role, which the client never has) — see
 
 ## Additional information
 
-Issues and feature requests: [github.com/ba6ul/flutter_auth_kit/issues](https://github.com/ba6ul/flutter_auth_kit/issues).
+Issues and feature requests: [github.com/ba6ul/multi_role_auth/issues](https://github.com/ba6ul/multi_role_auth/issues).
