@@ -15,6 +15,9 @@ rewriting each time: talking to Supabase and managing auth state.
 - Sign-out and account deletion, each with an optional host-app hook
   (`onLogout` / `onAccountDeleted`) for clearing local data the package
   doesn't know about
+- Password reset by email (`SendPasswordResetEmail`) — a use case rather
+  than a bloc event, so it fits a "forgot password" dialog with its own
+  loading state without flipping the global auth state
 - Configurable table/column names via `SupabaseSchema`, so it isn't tied
   to one project's exact schema
 
@@ -50,7 +53,8 @@ void initAuth(SupabaseClient client) {
     ..registerFactory(() => UserLogin(serviceLocator()))
     ..registerFactory(() => CurrentUser(serviceLocator()))
     ..registerFactory(() => UserSignOut(serviceLocator()))
-    ..registerFactory(() => DeleteAccount(serviceLocator()));
+    ..registerFactory(() => DeleteAccount(serviceLocator()))
+    ..registerFactory(() => SendPasswordResetEmail(serviceLocator()));
 
   serviceLocator.registerLazySingleton(
     () => AuthBloc(
@@ -81,6 +85,17 @@ context.read<AuthBloc>().add(AuthDeleteAccount());
 
 and react to `AuthState` (`AuthInitial`, `AuthLoading`, `AuthSuccess(user)`,
 `AuthFailure(message)`) with your own `BlocListener`/`BlocConsumer`.
+
+Password reset is a use case you call directly (so a "forgot password"
+dialog keeps its own loading state instead of triggering `AuthLoading`):
+
+```dart
+final result = await serviceLocator<SendPasswordResetEmail>()(email);
+result.fold(
+  (failure) => showError(failure.message),
+  (_) => showInfo('Password reset email sent'),
+);
+```
 
 Account deletion also needs a `delete-account` Supabase Edge Function
 deployed on your project (deleting an `auth.users` row requires the

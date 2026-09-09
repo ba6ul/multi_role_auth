@@ -100,6 +100,16 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, void>> sendPasswordResetEmail(String email) async {
+    try {
+      await remoteDataSource.sendPasswordResetEmail(email);
+      return right(null);
+    } on NetworkException catch (e) {
+      return left(Failure(e.message));
+    }
+  }
+
   Future<Either<Failure, UserProfile>> _getUser(
     Future<UserProfile> Function() fn,
   ) async {

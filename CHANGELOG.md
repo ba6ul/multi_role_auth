@@ -1,3 +1,10 @@
+## 0.2.0
+
+* Add password reset by email via the `SendPasswordResetEmail` use case,
+  routed through `AuthRepository` / `AuthRemoteDataSource` like the other
+  auth operations. Kept as a use case (not an `AuthBloc` event) so it suits
+  a "forgot password" dialog with its own loading state.
+
 ## 0.1.0
 
 Initial real release, extracted from and validated against
