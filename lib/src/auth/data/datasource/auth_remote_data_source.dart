@@ -1,7 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../config/supabase_schema.dart';
 import '../../../core/error/network_exceptions.dart';
 import '../model/user_model.dart';
@@ -29,8 +27,11 @@ abstract interface class AuthRemoteDataSource {
     required String password,
   });
 
-  /// Launches the Google OAuth flow and resolves once the resulting Supabase
-  /// session arrives back via the deep-link redirect.
+  /// Signs in with the native Google account picker (via `google_sign_in`)
+  /// and exchanges the resulting ID token for a Supabase session.
+  ///
+  /// [redirectTo] is vestigial — kept for signature compatibility with the
+  /// old browser-based OAuth flow — and is ignored by the native flow.
   Future<UserModel> signInWithGoogle({
     String? redirectTo,
     Duration timeout = const Duration(minutes: 3),
@@ -47,8 +48,17 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   /// The Supabase client all calls go through.
   final SupabaseClient supabaseClient;
 
+  /// The "Web application" OAuth client ID from Google Cloud Console — used
+  /// as `serverClientId` so the ID token `google_sign_in` returns has an
+  /// audience Supabase can verify. Must match the Client ID configured for
+  /// the Google provider in the Supabase dashboard. Required to call
+  /// [signInWithGoogle]; other methods work without it.
+  final String? googleWebClientId;
+
+  bool _googleSignInInitialized = false;
+
   /// Creates the data source over [supabaseClient].
-  AuthRemoteDataSourceImpl(this.supabaseClient);
+  AuthRemoteDataSourceImpl(this.supabaseClient, {this.googleWebClientId});
 
   @override
   Session? get currentUserSession => supabaseClient.auth.currentSession;
@@ -113,83 +123,51 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String? redirectTo,
     Duration timeout = const Duration(minutes: 3),
   }) async {
-    // `signInWithOAuth` only *launches* the external browser; the session
-    // itself arrives asynchronously once the redirect deep-links back into the
-    // app and supabase_flutter exchanges the OAuth code for a session (a
-    // network round-trip), then emits a `signedIn` event. So we resolve the
-    // profile only when a real session exists — never on launch alone.
-    final completer = Completer<Session>();
-
-    void completeWith(Session session) {
-      if (!completer.isCompleted) completer.complete(session);
-    }
-
-    void failWith(Object error) {
-      if (!completer.isCompleted) completer.completeError(error);
-    }
-
-    final authSub = supabaseClient.auth.onAuthStateChange.listen(
-      (data) {
-        _oauthLog('authState=${data.event} hasSession=${data.session != null}');
-        if (data.event == AuthChangeEvent.signedIn && data.session != null) {
-          completeWith(data.session!);
-        }
-      },
-      // A callback URL carrying an OAuth error, or a failed code exchange,
-      // surfaces here — propagate its real message instead of masking it as a
-      // cancellation.
-      onError: (Object e) {
-        _oauthLog('authState error: $e');
-        failWith(ServerException(e.toString()));
-      },
-    );
-
-    // Distinguishing a real cancellation from a slow success: the browser tab
-    // launches over the app (a lifecycle pause), and closing it — whether by a
-    // successful redirect or by the user backing out — returns here (resumed).
-    // These can't be told apart synchronously, so after the return we poll for
-    // a session for a generous window (the code exchange can be slow on a poor
-    // connection) and only report "not completed" if none ever appears. This
-    // replaces a fixed short grace that could fire before a genuine (but slow)
-    // session had a chance to land.
-    final returnObserver = _OAuthReturnObserver(
-      isSettled: () => completer.isCompleted,
-      currentSession: () => supabaseClient.auth.currentSession,
-      onSession: completeWith,
-      onNoSession: () => failWith(
-        const ServerException(
-          'Google sign-in did not complete — no session was returned. '
-          'Please try again.',
-        ),
-      ),
-    );
-    WidgetsBinding.instance.addObserver(returnObserver);
-
-    try {
-      final launched = await supabaseClient.auth.signInWithOAuth(
-        OAuthProvider.google,
-        redirectTo: redirectTo,
+    final webClientId = googleWebClientId;
+    if (webClientId == null) {
+      throw const ServerException(
+        'Google sign-in is not configured: no web client ID was provided.',
       );
-      _oauthLog('signInWithOAuth launched=$launched redirectTo=$redirectTo');
-      if (!launched) {
-        throw const ServerException('Could not open Google sign-in.');
+    }
+    try {
+      if (!_googleSignInInitialized) {
+        await GoogleSignIn.instance.initialize(serverClientId: webClientId);
+        _googleSignInInitialized = true;
       }
-      final session = await completer.future.timeout(
+      // The native account picker replaces the whole browser round-trip —
+      // it returns the signed-in account (or throws/cancels) directly, no
+      // deep-link redirect or auth-state polling needed.
+      final googleUser = await GoogleSignIn.instance.authenticate().timeout(
         timeout,
         onTimeout: () =>
             throw const ServerException('Google sign-in timed out.'),
       );
-      _oauthLog('session acquired for user ${session.user.id}');
-      return await _fetchProfile(session.user);
+      final idToken = googleUser.authentication.idToken;
+      if (idToken == null) {
+        throw const ServerException(
+          'Google sign-in did not return an ID token.',
+        );
+      }
+      final response = await supabaseClient.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+      if (response.user == null) {
+        throw const ServerException('User is null!');
+      }
+      _oauthLog('session acquired for user ${response.user!.id}');
+      return await _fetchProfile(response.user!);
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        throw const ServerException('Google sign-in was canceled.');
+      }
+      throw ServerException(e.description ?? e.code.toString());
     } on AuthException catch (e) {
       throw ServerException(e.message);
     } on ServerException {
       rethrow;
     } catch (e) {
       throw ServerException(e.toString());
-    } finally {
-      await authSub.cancel();
-      WidgetsBinding.instance.removeObserver(returnObserver);
     }
   }
 
@@ -281,81 +259,8 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 }
 
-/// Debug-only trace of the Google OAuth round-trip, visible in `flutter logs`.
+/// Debug-only trace of the Google sign-in round-trip, visible in `flutter logs`.
 /// Silent in release; no-op unless running in debug mode.
 void _oauthLog(String message) {
-  if (kDebugMode) debugPrint('[multi_role_auth] Google OAuth: $message');
-}
-
-/// Watches the app lifecycle across an OAuth round-trip to tell a real
-/// cancellation apart from a slow-but-genuine sign-in.
-///
-/// The provider's browser tab launches over the app (a pause); closing it —
-/// by a successful redirect or by backing out — returns to the foreground
-/// (resume). Since a genuine redirect still needs a network code-exchange
-/// before a session exists, we don't judge on resume alone: we poll for a
-/// session for a generous window, calling [onSession] the moment one appears
-/// and [onNoSession] only if the whole window elapses empty. Nothing here
-/// fires if the sign-in already settled ([isSettled]) via the auth stream.
-class _OAuthReturnObserver with WidgetsBindingObserver {
-  _OAuthReturnObserver({
-    required this.isSettled,
-    required this.currentSession,
-    required this.onSession,
-    required this.onNoSession,
-  });
-
-  /// Whether the sign-in already produced a result (success or error).
-  final bool Function() isSettled;
-
-  /// The current Supabase session, if the code exchange has completed.
-  final Session? Function() currentSession;
-
-  /// Called with the session once one materializes after the return.
-  final void Function(Session session) onSession;
-
-  /// Called when the return yields no session within the polling window.
-  final VoidCallback onNoSession;
-
-  /// The browser only shows after the app has actually left the foreground, so
-  /// we ignore resumes until we've seen the launch-time pause, and handle only
-  /// the first return.
-  bool _sawPause = false;
-  bool _handledReturn = false;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      _sawPause = true;
-    } else if (state == AppLifecycleState.resumed &&
-        _sawPause &&
-        !_handledReturn) {
-      _handledReturn = true;
-      _watchForSession();
-    }
-  }
-
-  Future<void> _watchForSession() async {
-    const interval = Duration(milliseconds: 400);
-    const maxWait = Duration(seconds: 15);
-    final deadline = DateTime.now().add(maxWait);
-    _oauthLog('returned to foreground — waiting for session…');
-    while (DateTime.now().isBefore(deadline)) {
-      if (isSettled()) return;
-      final session = currentSession();
-      if (session != null) {
-        _oauthLog('session present on return');
-        onSession(session);
-        return;
-      }
-      await Future<void>.delayed(interval);
-    }
-    if (!isSettled()) {
-      _oauthLog(
-        'no session after ${maxWait.inSeconds}s — reporting incomplete',
-      );
-      onNoSession();
-    }
-  }
+  if (kDebugMode) debugPrint('[multi_role_auth] Google sign-in: $message');
 }

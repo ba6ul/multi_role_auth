@@ -41,7 +41,14 @@ void initAuth(SupabaseClient client) {
   serviceLocator.registerLazySingleton(() => AppUserCubit());
 
   serviceLocator.registerFactory<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(client),
+    // googleWebClientId is the "Web application" OAuth client ID from
+    // Google Cloud Console (also set as the Google provider's Client ID in
+    // the Supabase dashboard). Required to call signInWithGoogle; omit it
+    // if the host app doesn't offer Google sign-in.
+    () => AuthRemoteDataSourceImpl(
+      client,
+      googleWebClientId: 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com',
+    ),
   );
 
   serviceLocator.registerFactory<AuthRepository>(

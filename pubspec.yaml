@@ -1,6 +1,6 @@
 name: multi_role_auth
 description: "Reusable multi-role auth logic for Flutter apps, backed by Supabase: bloc/cubit, domain entities/usecases, and repository. No UI - screens stay app-owned."
-version: 0.3.1
+version: 0.4.0
 homepage: https://github.com/ba6ul/multi_role_auth
 repository: https://github.com/ba6ul/multi_role_auth
 
@@ -14,6 +14,7 @@ dependencies:
   supabase_flutter: ^2.10.3
   flutter_bloc: ^9.1.1
   fpdart: ^1.2.0
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:
